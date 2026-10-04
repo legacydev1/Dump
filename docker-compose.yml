@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────
+#  Telegram Log Search Bot — docker-compose.yml
+#  Usage:
+#    docker-compose up -d          # start in background
+#    docker-compose logs -f        # follow logs
+#    docker-compose down           # stop and remove containers
+# ─────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: logsbot:latest
+    container_name: logsbot
+
+    restart: unless-stopped
+
+    # ── Environment ─────────────────────────────────────────
+    # All sensitive values come from .env — never hard-code secrets here.
+    env_file:
+      - .env
+
+    environment:
+      # Override paths to use the mounted volume
+      DATABASE_PATH: /app/data/bot.db
+      UPLOAD_DIR:    /app/data/uploads
+      LOG_LEVEL:     INFO
+
+    # ── Persistent storage ───────────────────────────────────
+    volumes:
+      - bot_data:/app/data
+
+    # ── Resource limits (adjust for your VPS) ───────────────
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
+
+    # ── Logging ──────────────────────────────────────────────
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+    # ── Health check ─────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "python", "-c", "import aiogram, aiosqlite; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+# ── Named volume (survives container restarts/updates) ────────
+volumes:
+  bot_data:
+    driver: local
